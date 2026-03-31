@@ -1,0 +1,1 @@
+replica number: 1 for environment: dev

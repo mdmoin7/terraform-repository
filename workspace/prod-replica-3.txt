@@ -1,0 +1,1 @@
+replica number: 3 for environment: prod

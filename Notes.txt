@@ -1,0 +1,133 @@
+Terraform : IaC : Infrastructure as a code
+HCL : hashicorp configuration language
+
+development => testing => deployment servers
+
+Key features
+
+1. Declarative syntax : define what infrastructure you want, not how to create it
+2. Idempotent : running the same code repeatedly, produces the same results
+3. Cloud agnostic : supports major cloud providers like AWS, Azure & GCP
+4. Modular : reusable code through modules
+5. Execution plan : Terraform shows what it will do before applying changes
+
+Core workflow
+
+1. terraform init : initialize the working directory
+2. terraform plan : shows what changes will be made
+3. terraform apply : applies the changes to your infrastructure
+4. terraform destroy : destroys the infrastructure
+
+Key Components
+
+- Providers : Connect terraform to cloud platforms (AWS, Azure, GCP)
+- Resources : The actual components (VM's, database, storage) you want to manage
+  resource <PROVIDER> <NAME>{}
+- Variables : parametrize the configurations
+- State files : Track the current state of your infrastructure
+- Modules : reusability : packages of terraform configuration files
+
+default values : tfvars file
+terraform apply -var-file="dev.tfvars"
+
+terraform.tfvars : common configs
+dev.tfvars : environment specific config
+prod.tfvars : environment specific config
+
+set : ID's, IP's, Zone, unordered
+List : ordered sequences, priority
+
+Data types : Variable (input)
+
+1. string
+2. number
+3. bool
+4. list
+5. set
+6. object
+7. map :
+
+outputs
+
+loops
+
+- count : identical resources
+- for_each : environment specific resources (production infra)
+- for expressions : data shaping
+
+conditionals
+
+- ternary
+- count (switch) : resource will be destroyed/recreated
+
+lifecycle
+creates => update => destroy
+
+1. create_before_destroy : ensures the new resource is created before the old one is destroyed
+
+Use case
+
+- zero downtime deployments
+
+2. prevent_destroy : prevent critical resources from accidental deletion
+
+Use case
+
+- database
+- storages
+
+3. ignore_changes : tells terraform to ignore specific attribute changes
+
+Use case
+
+- prevent unnecessary updates
+
+
+Environments : different working directory/workspace
+dev
+  main.tf
+  variables.tf
+  outputs.tf
+  terraform.tfvars
+  tfstate
+
+prod
+  main.tf
+  variables.tf
+  outputs.tf
+  terraform.tfvars
+  tfstate
+
+stage
+  main.tf
+  variables.tf
+  outputs.tf
+  terraform.tfvars
+
+
+terraform workspace list
+terraform workspace new dev : create & select
+terraform workspace new prod
+
+terraform workspace select prod
+terraform workspace show : active workspace 
+
+
+project
+    main.tf
+    variables.tf
+    outputs.tf
+    modules
+      file-set
+        main.tf
+        outputs.tf
+        variables.tf
+
+        terraform apply -target=module.dev_files
+        terraform destroy -target=module.prod_files
+
+        project => file-set => hashicorp/local
+
+Modules : do terraform init everytime a new source is added
+
+Source : local module, 3rd party(registry), git repo url
