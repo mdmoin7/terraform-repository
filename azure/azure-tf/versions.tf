@@ -1,32 +1,25 @@
 terraform {
-  #required_version = ">= 1.14.8"
-
+  required_version = ">= 1.6.0"
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "4.66.0"
+      version = "~> 4.66"
     }
-
     random = {
       source  = "hashicorp/random"
-      version = "3.8.1"
+      version = "~> 3.8"
     }
   }
 
-  # storing tfstate in a remote backend (blob storage)
-  # terraform init -migrate-state : to migrate local state to remote backend
+  # Free Azure Blob backend for remote state
   backend "azurerm" {
-    resource_group_name  = "rg-jup3kd1-devtest"
-    storage_account_name = "stjup3kddevtest"
+    resource_group_name  = "tfstate-rg"
+    storage_account_name = "tfstatelearnapp" # must be globally unique — change this
     container_name       = "tfstate"
-    key                  = "appservice.tfstate"
+    key                  = "learnapp.terraform.tfstate"
   }
 }
 
 provider "azurerm" {
-  # Configuration options : az login
-  # subscription_id = "<YOUR_SUBSCRIPTION_ID>"
-  features {
-    # enable/disable specific features here
-  }
+  features {}
 }

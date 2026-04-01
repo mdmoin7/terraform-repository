@@ -1,0 +1,4 @@
+project     = "learnapp"
+env         = "dev"
+location    = "eastus2"
+alert_email = "you@example.com"

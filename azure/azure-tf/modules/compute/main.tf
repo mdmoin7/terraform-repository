@@ -3,27 +3,32 @@ resource "random_password" "admin" {
   special = true
 }
 
-# ── VM Scale Set ──────────────────────────────────────────────────────────────
+# ── VM Scale Set — B1s is the free-tier eligible VM ──────────────────────────
 resource "azurerm_linux_virtual_machine_scale_set" "main" {
   name                            = "${var.project}-${var.env}-vmss"
-  resource_group_name             = azurerm_resource_group.main.name
-  location                        = azurerm_resource_group.main.location
-  sku                             = "Standard_D2s_v3"
-  instances                       = 2
+  resource_group_name             = var.resource_group_name
+  location                        = var.location
+  sku                             = "Standard_B1s" # 1 vCPU, 1 GB RAM — free tier
+  instances                       = 1              # keep at 1 to stay free
   admin_username                  = "azureadmin"
   admin_password                  = random_password.admin.result
   disable_password_authentication = false
-  health_probe_id                 = azurerm_lb_probe.http.id
+  health_probe_id                 = var.lb_probe_id
   upgrade_mode                    = "Rolling"
 
-  # Inject App Insights key + SQL connection string into the VM at boot
+  # Bootstrap: install nginx, write env vars from Terraform outputs
   custom_data = base64encode(<<-EOF
     #!/bin/bash
-    apt-get update -y && apt-get install -y nginx
-    echo "APPINSIGHTS_KEY=${var.app_insights_key}"   >> /etc/environment
-    echo "SQL_CONN=${var.sql_connection_str}"         >> /etc/environment
-    echo "server { listen 80; location /health { return 200 'ok'; } }" \
+    apt-get update -y
+    apt-get install -y nginx
+    cat >> /etc/environment <<ENVVARS
+    APPINSIGHTS_KEY=${var.app_insights_key}
+    SQL_CONN=${var.sql_connection_str}
+    ENVVARS
+    # Simple health endpoint
+    echo 'server { listen 80; location /health { return 200 "ok\n"; add_header Content-Type text/plain; } }' \
       > /etc/nginx/sites-enabled/default
+    systemctl enable nginx
     systemctl restart nginx
   EOF
   )
@@ -37,24 +42,25 @@ resource "azurerm_linux_virtual_machine_scale_set" "main" {
 
   os_disk {
     caching              = "ReadWrite"
-    storage_account_type = "Premium_LRS"
+    storage_account_type = "Standard_LRS" # cheapest disk tier
   }
 
   network_interface {
     name    = "nic"
     primary = true
+
     ip_configuration {
       name                                   = "ipconfig"
       primary                                = true
-      subnet_id                              = azurerm_subnet.frontend.id
-      load_balancer_backend_address_pool_ids = [azurerm_lb_backend_address_pool.main.id]
+      subnet_id                              = var.frontend_subnet_id
+      load_balancer_backend_address_pool_ids = [var.lb_backend_pool_id]
     }
   }
 
   rolling_upgrade_policy {
-    max_batch_instance_percent              = 20
-    max_unhealthy_instance_percent          = 20
-    max_unhealthy_upgraded_instance_percent = 5
+    max_batch_instance_percent              = 100
+    max_unhealthy_instance_percent          = 100
+    max_unhealthy_upgraded_instance_percent = 100
     pause_time_between_batches              = "PT0S"
   }
 
@@ -66,22 +72,22 @@ resource "azurerm_linux_virtual_machine_scale_set" "main" {
   lifecycle { ignore_changes = [instances] }
 }
 
-# ── Autoscale ─────────────────────────────────────────────────────────────────
+# ── Autoscale — scale to max 2 to keep costs near zero ───────────────────────
 resource "azurerm_monitor_autoscale_setting" "main" {
   name                = "${var.project}-${var.env}-autoscale"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
+  resource_group_name = var.resource_group_name
+  location            = var.location
   target_resource_id  = azurerm_linux_virtual_machine_scale_set.main.id
 
   profile {
     name = "default"
     capacity {
-      default = 2
-      minimum = 2
-      maximum = 10
+      default = 1
+      minimum = 1
+      maximum = 2
     }
 
-    # Scale OUT when CPU > 75% for 5 min
+    # Scale out: CPU > 80% for 5 min → add 1 instance
     rule {
       metric_trigger {
         metric_name        = "Percentage CPU"
@@ -91,17 +97,17 @@ resource "azurerm_monitor_autoscale_setting" "main" {
         time_window        = "PT5M"
         time_aggregation   = "Average"
         operator           = "GreaterThan"
-        threshold          = 75
+        threshold          = 80
       }
       scale_action {
         direction = "Increase"
         type      = "ChangeCount"
-        value     = "2"
+        value     = "1"
         cooldown  = "PT5M"
       }
     }
 
-    # Scale IN when CPU < 25% for 10 min
+    # Scale in: CPU < 20% for 10 min → remove 1 instance
     rule {
       metric_trigger {
         metric_name        = "Percentage CPU"
@@ -111,7 +117,7 @@ resource "azurerm_monitor_autoscale_setting" "main" {
         time_window        = "PT10M"
         time_aggregation   = "Average"
         operator           = "LessThan"
-        threshold          = 25
+        threshold          = 20
       }
       scale_action {
         direction = "Decrease"

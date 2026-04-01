@@ -1,0 +1,16 @@
+variable "project" {
+  type    = string
+  default = "learnapp"
+}
+variable "env" {
+  type    = string
+  default = "dev"
+}
+variable "location" {
+  type    = string
+  default = "eastus2"
+}
+variable "alert_email" {
+  type    = string
+  default = "you@example.com"
+}
