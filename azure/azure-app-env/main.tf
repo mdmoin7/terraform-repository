@@ -17,8 +17,9 @@ resource "azurerm_service_plan" "main" {
   name                = "asp-${random_string.suffix.result}-devtest"
   resource_group_name = azurerm_resource_group.main.name
 }
-# Web App
+# Web App (linux)
 resource "azurerm_linux_web_app" "main" {
+  # count = env == "linux" ? 1 : 0
   site_config {
     always_on = false # must be false on B1 free tier
     application_stack {
@@ -40,7 +41,13 @@ resource "azurerm_storage_account" "main" {
 }
 # a blob container for app uploads/assets
 resource "azurerm_storage_container" "main" {
-  name                  = "app-assets"
+  name                  = "assets"
+  storage_account_id    = azurerm_storage_account.main.id
+  container_access_type = "private"
+}
+# tfstate storage container (for remote state) - can be in a different storage account, but for simplicity we are using the same one here
+resource "azurerm_storage_container" "tfstate" {
+  name                  = "tfstate"
   storage_account_id    = azurerm_storage_account.main.id
   container_access_type = "private"
 }

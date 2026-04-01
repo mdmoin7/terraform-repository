@@ -12,15 +12,6 @@ terraform {
       version = "3.8.1"
     }
   }
-
-  # storing tfstate in a remote backend (blob storage)
-  # terraform init -migrate-state : to migrate local state to remote backend
-  backend "azurerm" {
-    resource_group_name  = "rg-jup3kd1-devtest"
-    storage_account_name = "stjup3kddevtest"
-    container_name       = "tfstate"
-    key                  = "appservice.tfstate"
-  }
 }
 
 provider "azurerm" {
